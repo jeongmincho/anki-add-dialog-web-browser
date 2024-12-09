@@ -1,2 +1,1 @@
 # anki-browser
-# anki-browser

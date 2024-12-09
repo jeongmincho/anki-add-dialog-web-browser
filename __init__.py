@@ -1,7 +1,13 @@
-from aqt import QSplitter, Qt, gui_hooks
-from aqt.qt import QWidget, QVBoxLayout, QShortcut, QKeySequence
+from aqt import QSplitter, Qt, gui_hooks, mw
+from aqt.qt import QWidget, QVBoxLayout, QShortcut, QKeySequence, QAction
 from aqt.utils import tooltip
 from .browser import BrowserWidget
+from . import config
+from .settings import SettingsDialog
+
+def show_settings():
+    dialog = SettingsDialog(mw)
+    dialog.exec()
 
 def show_browser_sidebar(editor):
     parent = editor.parentWindow
@@ -21,7 +27,7 @@ def show_browser_sidebar(editor):
     old_parent = editor_widget.parent()
     splitter.addWidget(editor_widget)
     
-    browser = BrowserWidget(parent=parent)
+    browser = BrowserWidget(url=config.get_config()["start_url"], parent=parent)
     parent._browser_sidebar = browser
     splitter.addWidget(browser)
     
@@ -38,7 +44,7 @@ def add_browser_button(buttons, editor):
         icon=None,
         cmd="toggle_browser",
         func=lambda e: show_browser_sidebar(editor),
-        tip="Toggle browser sidebar (⌘⇧B)",  
+        tip="Toggle web browser (⌘⇧B)",  
         label="🌐"
     )
 
@@ -47,5 +53,9 @@ def add_browser_button(buttons, editor):
 
     buttons.append(button)
     return buttons
+
+settings_action = QAction("Add Dialog Web Browser", mw)
+settings_action.triggered.connect(show_settings)
+mw.form.menuTools.addAction(settings_action)
 
 gui_hooks.editor_did_init_buttons.append(add_browser_button)

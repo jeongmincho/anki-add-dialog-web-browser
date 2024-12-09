@@ -23,19 +23,21 @@ def show_browser_sidebar(editor):
     splitter = QSplitter(Qt.Orientation.Horizontal)
     parent._splitter = splitter
     
-    editor_widget = editor.widget
-    old_parent = editor_widget.parent()
-    splitter.addWidget(editor_widget)
+    main_widget = parent
+    old_layout = main_widget.layout()
     
+    container = QWidget()
+    container.setLayout(old_layout)
+    
+    splitter.addWidget(container)
     browser = BrowserWidget(url=config.get_config()["start_url"], parent=parent)
     parent._browser_sidebar = browser
     splitter.addWidget(browser)
     
-    editor_container = old_parent
-    container_layout = editor_container.layout()
-    if not container_layout:
-        container_layout = QVBoxLayout(editor_container)
-    container_layout.addWidget(splitter)
+    new_layout = QVBoxLayout()
+    new_layout.setContentsMargins(0, 0, 0, 0)
+    new_layout.addWidget(splitter)
+    main_widget.setLayout(new_layout)
     
     splitter.setSizes([500, 500])
 

@@ -1,9 +1,72 @@
 from aqt import QSplitter, Qt, gui_hooks, mw
-from aqt.qt import QWidget, QVBoxLayout, QShortcut, QKeySequence, QAction
+from aqt.qt import QWidget, QVBoxLayout, QShortcut, QKeySequence, QAction, QObject, QEvent
 from aqt.utils import tooltip
 from .browser import BrowserWidget
 from . import config
 from .settings import SettingsDialog
+
+class BrowserEventFilter(QObject):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.KeyPress:
+            if (event.key() == Qt.Key.Key_W and 
+                (event.modifiers() & (Qt.KeyboardModifier.MetaModifier | Qt.KeyboardModifier.ControlModifier)) and
+                hasattr(self.parent, '_browser_sidebar') and
+                self.parent._browser_sidebar.isVisible() and
+                self.parent._browser_sidebar.tabs.count() > 1):
+                self.parent._browser_sidebar._close_current_tab()
+                event.accept()
+                return True
+        elif event.type() == QEvent.Type.Close:
+            if (hasattr(self.parent, '_browser_sidebar') and 
+                self.parent._browser_sidebar.isVisible() and 
+                self.parent._browser_sidebar.tabs.count() > 1):
+                modifiers = mw.app.keyboardModifiers()
+                if modifiers & (Qt.KeyboardModifier.MetaModifier | Qt.KeyboardModifier.ControlModifier):
+                    self.parent._browser_sidebar._close_current_tab()
+                    event.ignore()
+                    return True
+        return False
+
+class BrowserCloseEventFilter(QObject):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Close:
+            if (hasattr(self.parent, '_browser_sidebar') and 
+                self.parent._browser_sidebar.isVisible() and 
+                self.parent._browser_sidebar.tabs.count() > 1):
+                modifiers = mw.app.keyboardModifiers()
+                if modifiers & (Qt.KeyboardModifier.MetaModifier | Qt.KeyboardModifier.ControlModifier):
+                    self.parent._browser_sidebar._close_current_tab()
+                    event.ignore()
+                    return True
+        return False
+
+class BrowserActionFilter(QObject):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Paint:
+            if obj.text() == "&Close" or obj.text() == "Close":
+                original_trigger = obj.triggered
+                def new_trigger(checked=False):
+                    if (hasattr(self.parent, '_browser_sidebar') and 
+                        self.parent._browser_sidebar.isVisible() and 
+                        self.parent._browser_sidebar.tabs.count() > 1):
+                        self.parent._browser_sidebar._close_current_tab()
+                    else:
+                        original_trigger.emit()
+                obj.triggered.connect(new_trigger)
+                return True
+        return False
 
 def show_settings():
     dialog = SettingsDialog(mw)
@@ -19,7 +82,17 @@ def show_browser_sidebar(editor):
         else:
             parent._browser_sidebar.show()
             return
-    
+
+    event_filter = BrowserEventFilter(parent)
+    parent.installEventFilter(event_filter)
+
+    close_event_filter = BrowserCloseEventFilter(parent)
+    parent.installEventFilter(close_event_filter)
+
+    for action in parent.findChildren(QAction):
+        action_filter = BrowserActionFilter(parent)
+        action.installEventFilter(action_filter)
+
     splitter = QSplitter(Qt.Orientation.Horizontal)
     parent._splitter = splitter
     

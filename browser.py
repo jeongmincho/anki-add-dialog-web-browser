@@ -1,10 +1,10 @@
 from aqt import QWebEngineView, QWebEnginePage, QWebEngineProfile, QWebEngineSettings, Qt, QUrl
-from aqt.qt import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QLineEdit, QShortcut, QKeySequence
+from aqt.qt import (QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QLineEdit, 
+                   QShortcut, QKeySequence, QTabWidget, QTabBar)
 
-class BrowserWidget(QWidget):
-    def __init__(self, url="https://www.google.com", parent=None):
+class TabWidget(QWidget):
+    def __init__(self, url=None, parent=None):
         super().__init__(parent)
-        
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
@@ -28,14 +28,9 @@ class BrowserWidget(QWidget):
         
         self.url_edit = QLineEdit(self)
         self.url_edit.returnPressed.connect(self._navigate_to_url)
-        self.url_edit.setCursorPosition(0) 
-        self.url_edit.setAlignment(Qt.AlignmentFlag.AlignLeft) 
+        self.url_edit.setCursorPosition(0)
+        self.url_edit.setAlignment(Qt.AlignmentFlag.AlignLeft)
         nav_layout.addWidget(self.url_edit)
-        
-        QShortcut(QKeySequence("Ctrl+["), self).activated.connect(self._go_back)
-        QShortcut(QKeySequence("Ctrl+]"), self).activated.connect(self._go_forward)
-        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(self._focus_url)
-        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._reload_page)
         
         layout.addLayout(nav_layout)
         
@@ -54,11 +49,17 @@ class BrowserWidget(QWidget):
         self.webview.urlChanged.connect(self._url_changed)
         self.webview.loadFinished.connect(self._on_load_finished)
         
-        self.webview.load(QUrl(url))
-        self.url_edit.setText(url)
+        if url:
+            self.webview.load(QUrl(url))
+            self.url_edit.setText(url)
+        else:
+            self.url_edit.setText("")
         
         layout.addWidget(self.webview)
-    
+
+        QShortcut(QKeySequence("Ctrl+["), self).activated.connect(self._go_back)
+        QShortcut(QKeySequence("Ctrl+]"), self).activated.connect(self._go_forward)
+
     def _go_back(self):
         self.webview.back()
 
@@ -83,10 +84,11 @@ class BrowserWidget(QWidget):
     def _url_changed(self, url):
         self.url_edit.setText(url.toString())
         self.url_edit.setCursorPosition(0)
-
-    def _focus_url(self):
-        self.url_edit.setFocus()
-        self.url_edit.selectAll()
+        # Update tab title
+        if self.parent() and isinstance(self.parent(), QTabWidget):
+            index = self.parent().indexOf(self)
+            title = self.webview.title() or "New Tab"
+            self.parent().setTabText(index, title[:20] + "..." if len(title) > 20 else title)
 
     def _reload_page(self):
         self.webview.reload()
@@ -94,10 +96,92 @@ class BrowserWidget(QWidget):
     def focus_web_content(self):
         self.webview.setFocus()
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        self.focus_web_content()
+    def current_url(self):
+        return self.webview.url().toString()
 
     def _on_load_finished(self, ok):
         if ok:
             self.focus_web_content()
+
+class BrowserWidget(QWidget):
+    def __init__(self, url=None, parent=None):
+        super().__init__(parent)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.tabs = QTabWidget()
+        self.tabs.setTabsClosable(True)
+        self.tabs.setMovable(True)
+        self.tabs.setDocumentMode(True)
+        self.tabs.tabCloseRequested.connect(self._close_tab)
+        
+        new_tab_button = QPushButton("+")
+        new_tab_button.setMaximumWidth(30)
+        new_tab_button.clicked.connect(lambda: self._add_new_tab())
+        self.tabs.setCornerWidget(new_tab_button)
+        
+        layout.addWidget(self.tabs)
+        
+        QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(lambda: self._add_new_tab())
+        QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(self._next_tab)
+        QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(self._prev_tab)
+
+        # Not working
+        QShortcut(QKeySequence("Ctrl+W"), self).activated.connect(lambda: self._close_current_tab())
+        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(self._focus_url_current)
+        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._reload_current)
+        
+        self._add_new_tab(url)
+
+    def _add_new_tab(self, url=None):
+        new_tab = TabWidget(url, self)
+        index = self.tabs.addTab(new_tab, "New Tab")
+        self.tabs.setCurrentIndex(index)
+        new_tab.webview.titleChanged.connect(lambda title: self._update_tab_title(new_tab, title))
+        if not url:  # Focus URL input for new empty tabs
+            new_tab.url_edit.setFocus()
+            new_tab.url_edit.selectAll()
+        return new_tab
+
+    def _close_tab(self, index):
+        if self.tabs.count() > 1:
+            self.tabs.removeTab(index)
+        else:
+            self._add_new_tab()
+
+    def _close_current_tab(self):
+        self._close_tab(self.tabs.currentIndex())
+
+    def _next_tab(self):
+        curr = self.tabs.currentIndex()
+        self.tabs.setCurrentIndex((curr + 1) % self.tabs.count())
+
+    def _prev_tab(self):
+        curr = self.tabs.currentIndex()
+        self.tabs.setCurrentIndex((curr - 1) % self.tabs.count())
+
+    def _update_tab_title(self, tab, title):
+        index = self.tabs.indexOf(tab)
+        if index >= 0:
+            self.tabs.setTabText(index, title[:20] + "..." if len(title) > 20 else title)
+
+    def _focus_url_current(self):
+        current_tab = self.tabs.currentWidget()
+        if current_tab:
+            current_tab.url_edit.setFocus()
+            current_tab.url_edit.selectAll()
+
+    def _reload_current(self):
+        current_tab = self.tabs.currentWidget()
+        if current_tab:
+            current_tab._reload_page()
+
+    def focus_web_content(self):
+        current_tab = self.tabs.currentWidget()
+        if current_tab:
+            current_tab.focus_web_content()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.focus_web_content()

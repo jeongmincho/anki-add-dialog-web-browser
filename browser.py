@@ -3,28 +3,33 @@ from aqt.qt import (QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QLineEdit,
                    QShortcut, QKeySequence, QTabWidget, QTabBar, QEvent)
 
 class TabWidget(QWidget):
-    def __init__(self, url=None, parent=None):
+    def __init__(self, url=None, parent=None, browser=None):
         super().__init__(parent)
+        self.browser = browser
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(3)
         
         nav_layout = QHBoxLayout()
-        nav_layout.setContentsMargins(5, 5, 5, 5)
+        nav_layout.setContentsMargins(5, 5, 5, 0)
         
         self.back_button = QPushButton("←", self)
         self.back_button.clicked.connect(self._go_back)
         self.back_button.setMaximumWidth(30)
+        self.back_button.setToolTip("Back (Ctrl+[)")
         nav_layout.addWidget(self.back_button)
 
         self.forward_button = QPushButton("→", self)
         self.forward_button.clicked.connect(self._go_forward)
         self.forward_button.setMaximumWidth(30)
+        self.forward_button.setToolTip("Forward (Ctrl+])")
         nav_layout.addWidget(self.forward_button)
 
         self.reload_button = QPushButton("↻", self)
         self.reload_button.clicked.connect(self._reload_page)
         self.reload_button.setMaximumWidth(30)
+        self.reload_button.setToolTip("Reload (Ctrl+R)")
         nav_layout.addWidget(self.reload_button)
         
         self.url_edit = QLineEdit(self)
@@ -32,6 +37,12 @@ class TabWidget(QWidget):
         self.url_edit.setCursorPosition(0)
         self.url_edit.setAlignment(Qt.AlignmentFlag.AlignLeft)
         nav_layout.addWidget(self.url_edit)
+
+        self.new_tab_button = QPushButton("+", self)
+        self.new_tab_button.clicked.connect(lambda: self.browser._add_new_tab() if self.browser else None)
+        self.new_tab_button.setMaximumWidth(30)
+        self.new_tab_button.setToolTip("New Tab (Ctrl+T)")
+        nav_layout.addWidget(self.new_tab_button)
         
         layout.addLayout(nav_layout)
         
@@ -116,12 +127,9 @@ class BrowserWidget(QWidget):
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
         self.tabs.setDocumentMode(True)
+        self.tabs.setElideMode(Qt.TextElideMode.ElideRight)
+        self.tabs.tabBar().setExpanding(False)
         self.tabs.tabCloseRequested.connect(self._close_tab)
-        
-        new_tab_button = QPushButton("+")
-        new_tab_button.setMaximumWidth(30)
-        new_tab_button.clicked.connect(lambda: self._add_new_tab())
-        self.tabs.setCornerWidget(new_tab_button)
         
         layout.addWidget(self.tabs)
         
@@ -152,7 +160,7 @@ class BrowserWidget(QWidget):
         if self.tabs.count() > 1:
             self.tabs.removeTab(index)
         else:
-            self._add_new_tab()
+            self.hide()
 
     def _close_current_tab(self):
         self._close_tab(self.tabs.currentIndex())
@@ -191,7 +199,7 @@ class BrowserWidget(QWidget):
         self.focus_web_content()
 
     def _add_new_tab(self, url=None):
-        new_tab = TabWidget(url, self)
+        new_tab = TabWidget(url, self.tabs, browser=self)
         index = self.tabs.addTab(new_tab, "New Tab")
         self.tabs.setCurrentIndex(index)
         new_tab.webview.titleChanged.connect(lambda title: self._update_tab_title(new_tab, title))

@@ -119,7 +119,7 @@ def add_browser_button(buttons, editor):
         icon=None,
         cmd="toggle_browser",
         func=lambda e: show_browser_sidebar(editor),
-        tip="Toggle web browser (⌘⇧L)",  
+        tip="Toggle web browser (Ctrl+Shift+L)",  
         label="🌐"
     )
 

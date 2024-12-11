@@ -126,8 +126,6 @@ class BrowserWidget(QWidget):
         layout.addWidget(self.tabs)
         
         QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(lambda: self._add_new_tab())
-        QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(self._next_tab)
-        QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(self._prev_tab)
         QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(self._focus_url_current)
         QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self._reload_current)
         

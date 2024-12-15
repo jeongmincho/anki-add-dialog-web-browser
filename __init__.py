@@ -72,14 +72,20 @@ def show_settings():
     dialog = SettingsDialog(mw)
     dialog.exec()
 
-def show_browser_sidebar(editor):
+def show_browser_sidebar(editor, url=None):
     parent = editor.parentWindow
     
     if hasattr(parent, '_browser_sidebar'):
         if parent._browser_sidebar.isVisible():
+            if parent.__class__.__name__ == "Browser":
+                if hasattr(parent, '_browser_dock'):
+                    parent._browser_dock.hide()
             parent._browser_sidebar.hide()
             return
         else:
+            if parent.__class__.__name__ == "Browser":
+                if hasattr(parent, '_browser_dock'):
+                    parent._browser_dock.show()
             parent._browser_sidebar.show()
             return
 
@@ -93,6 +99,27 @@ def show_browser_sidebar(editor):
         action_filter = BrowserActionFilter(parent)
         action.installEventFilter(action_filter)
 
+    # Handle browser window differently
+    if parent.__class__.__name__ == "Browser":
+        from PyQt6.QtWidgets import QDockWidget, QSizePolicy
+        browser = BrowserWidget(url=config.get_config()["start_url"], parent=parent)
+        parent._browser_sidebar = browser
+        
+        dock = QDockWidget(parent)  
+        dock.setTitleBarWidget(QWidget())  
+        dock.setWidget(browser)
+        dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea)
+        
+        browser.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        window_width = parent.width()
+        target_width = window_width // 3
+        browser.setFixedWidth(target_width)
+        
+        parent.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        parent._browser_dock = dock  
+        return
+
+    # Original code for add/edit dialog
     splitter = QSplitter(Qt.Orientation.Horizontal)
     parent._splitter = splitter
     
@@ -103,7 +130,8 @@ def show_browser_sidebar(editor):
     container.setLayout(old_layout)
     
     splitter.addWidget(container)
-    browser = BrowserWidget(url=config.get_config()["start_url"], parent=parent)
+    start_url = url if url is not None else config.get_config()["start_url"]
+    browser = BrowserWidget(url=start_url, parent=parent)
     parent._browser_sidebar = browser
     splitter.addWidget(browser)
     

@@ -99,7 +99,6 @@ def show_browser_sidebar(editor, url=None):
         action_filter = BrowserActionFilter(parent)
         action.installEventFilter(action_filter)
 
-    # Handle browser window differently
     if parent.__class__.__name__ == "Browser":
         from PyQt6.QtWidgets import QDockWidget, QSizePolicy
         browser = BrowserWidget(url=config.get_config()["start_url"], parent=parent)
@@ -119,7 +118,6 @@ def show_browser_sidebar(editor, url=None):
         parent._browser_dock = dock  
         return
 
-    # Original code for add/edit dialog
     splitter = QSplitter(Qt.Orientation.Horizontal)
     parent._splitter = splitter
     
@@ -143,11 +141,12 @@ def show_browser_sidebar(editor, url=None):
     splitter.setSizes([500, 500])
 
 def add_browser_button(buttons, editor):
+    tip_text = "Toggle web browser" if editor.parentWindow.__class__.__name__ == "Browser" else "Toggle web browser (Ctrl+Shift+L)"
     button = editor.addButton(
         icon=None,
         cmd="toggle_browser",
         func=lambda e: show_browser_sidebar(editor),
-        tip="Toggle web browser (Ctrl+Shift+L)",  
+        tip=tip_text,  
         label="🌐"
     )
 

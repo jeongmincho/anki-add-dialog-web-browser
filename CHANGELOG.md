@@ -2,10 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] - 2024-12-26
+## [1.0.1] - 2024-12-26
 
-### Added
-- Browser sidebar support in Browse window
+### Fixed
+- Plugin compatibility with Anki's Browse window
 
 ## [1.0.0] - 2024-12-11
 
